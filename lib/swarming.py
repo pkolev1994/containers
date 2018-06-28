@@ -1,4 +1,3 @@
-import docker
 import paramiko
 import re
 
@@ -13,6 +12,10 @@ class SwarmManagment():
 		Args:
 			available_servers(list)
 			swarm_servers(list)
+			user(str)
+			password(str)
+			master_node(str)
+			token(str)
 		"""
 		self.ssh_client = paramiko.SSHClient()
 		self.ssh_client.load_system_host_keys()
@@ -20,13 +23,15 @@ class SwarmManagment():
 		self.swarm_servers = kwargs.get('swarm_servers', [])
 		self.user = kwargs.get('user')
 		self.password = kwargs.get('password')
-		self.__master_node = kwargs.get('master_node')
+		self.master_nodes = kwargs.get('master_nodes', [])
+		self.__master = kwargs.get('master', None)
 		self.__token = kwargs.get('token')
 
 	def add_server(self, host_ips):
 		"""
 		Add server to available_servers
-		If the server consist in the list it won't be add
+		If the server consist in the self.available_servers
+	 	it won't be add
 		Args:
 			host_ips(list or str)
 		Returns:
@@ -54,7 +59,7 @@ class SwarmManagment():
 		"""
 		if isinstance(host_ip, str):
 			if host_ip not in self.swarm_servers:
-				self.swarm_servers.append(host_ips)
+				self.swarm_servers.append(host_ip)
 			else:
 				print("The host ip is already in the list")
 
@@ -85,6 +90,14 @@ class SwarmManagment():
 		"""
 		self.available_servers.remove(host_ip)
 
+	def remove_swarm_server(self, host_ip):
+		"""
+		Remove server ip from self.swarm_servers
+		Args:
+			host_ip(str)
+		"""
+		self.swarm_servers.remove(host_ip)
+
 
 	def join_server_swarm(self, host_ip):
 		"""
@@ -94,11 +107,11 @@ class SwarmManagment():
 		"""
 		self.ssh_client.connect(host_ip, username=self.user, password=self.password)
 		_, stdout, _ = self.ssh_client.exec_command('docker swarm join --token {} {}:2377'. \
-													format(self.__token, self.__master_node))
+													format(self.__token, self.__master))
 		stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
 		if re.search(r'This node joined a swarm as a worker', stdout, re.I|re.S):
 			self.remove_available_server(host_ip)
-			self.swarm_servers.append(host_ip)
+			self.add_swarm_server(host_ip)
 		else:
 			return "Node {} can't be joined to the swarm".format(host_ip)
 
@@ -108,16 +121,100 @@ class SwarmManagment():
 		Args:
 			host_ip(str)
 		"""
+		if host_ip in self.master_nodes:
+			print("Demoting the node from manager")
+			self.demote_manager(host_ip)
+
 		self.ssh_client.connect(host_ip, username=self.user, password=self.password)
 		_, stdout, _ = self.ssh_client.exec_command('docker swarm leave')
 		stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
-		_, hostname, _ = self.ssh_client.exec_command('hostname')
-		hostname = '\n'.join(map(lambda x: x.rstrip(), hostname.readlines()))
+		hostname = self.get_hostname(host_ip)
 		if re.search(r'Node left the swarm', stdout, re.I|re.S):
-			self.ssh_client.connect(self.__master_node, username=self.user, password=self.password)
+			self.ssh_client.connect(self.__master, username=self.user, password=self.password)
 			_, leave_stdout, _ = self.ssh_client.exec_command('docker node rm -f {}'.format(hostname))
 			leave_stdout = '\n'.join(map(lambda x: x.rstrip(), leave_stdout.readlines()))
-			self.available_servers.append(host_ip)
-			self.swarm_servers.remove(host_ip)						
+			self.add_server(host_ip)
+			self.remove_swarm_server(host_ip)						
 		else:
 			return "Node {} can't left the swarm for some reason".format(host_ip)
+
+
+	def add_master_node(self, host_ip):
+		"""
+		Add server ip to self.master_nodes
+		Args:
+			host_ip(str)
+		"""
+		self.master_nodes.append(host_ip)
+
+
+	def remove_master_node(self, host_ip):
+		"""
+		Remove server ip to self.master_nodes
+		Args:
+			host_ip(str)
+		"""
+		self.master_nodes.remove(host_ip)
+
+
+	def promote_to_manager(self, host_ip):
+		"""
+		Promote the server to manager in the swarm
+		Args:
+			host_ip(str)
+		"""
+		hostname = self.get_hostname(host_ip)
+		self.ssh_client.connect(self.__master, username=self.user, password=self.password)
+		_, promoted_stdout, _ = self.ssh_client.exec_command('docker node promote {}'.format(hostname))
+		promoted_stdout = '\n'.join(map(lambda x: x.rstrip(), promoted_stdout.readlines()))
+		if re.search(r'promoted to a manager in the swarm', promoted_stdout, re.I|re.S):
+			self.add_master_node(host_ip)
+		else:
+			return "Node {} can't be promoted to manager".format(host_ip)
+
+	def demote_manager(self, host_ip):
+		"""
+		Demote the server from manager in the swarm
+		Args:
+			host_ip(str)
+		"""
+		hostname = self.get_hostname(host_ip)
+		self.ssh_client.connect(self.__master, username=self.user, password=self.password)
+		_, demoted_stdout, _ = self.ssh_client.exec_command('docker node demote {}'.format(hostname))
+		demoted_stdout = '\n'.join(map(lambda x: x.rstrip(), demoted_stdout.readlines()))
+		if re.search(r'demoted in the swarm', demoted_stdout, re.I|re.S):
+			self.remove_master_node(host_ip)
+		else:
+			return "Node {} can't be demoted from manager".format(host_ip)
+
+	def get_hostname(self, host_ip):
+		"""
+		Take the hostname of the server ip
+		Args:
+			host_ip(str)
+		Returns:
+			hostname(str)
+		"""
+		self.ssh_client.connect(host_ip, username=self.user, password=self.password)
+		_, hostname, _ = self.ssh_client.exec_command('hostname')
+		hostname = '\n'.join(map(lambda x: x.rstrip(), hostname.readlines()))
+
+		return hostname.strip()
+
+
+	def change_master(self, host_ip):
+		"""
+		Change the self.__master
+		Args:
+			host_ip(str)
+		"""
+		self.__master = host_ip
+
+
+	def change_token(self, token):
+		"""
+		Change the self.__token
+		Args:
+			token(str)
+		"""
+		self.__token = token
