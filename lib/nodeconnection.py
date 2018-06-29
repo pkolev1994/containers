@@ -25,11 +25,10 @@ class Node(threading.Thread):
         self.address = kwargs.get('address', None)
         self.user = kwargs.get('user', None)
         self.password = kwargs.get('password', None)
-        self.ssh_client = kwargs.get('ssh_client')
+        self.ssh_client = paramiko.SSHClient()
         self.output = None
         # start thread
         self.start()
-        # self.join()
 
     def _ParamikoConnection(self):
         """
@@ -49,7 +48,6 @@ class Node(threading.Thread):
             _, stdout, _ = self.ssh_client.exec_command('python /root/python/take_stats.py')
             stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
             self.output = eval(stdout)
-
         except socket.error as e:
             if self.NoCmd:
                 print("{}, Connection error: {}".format(self.address, e))

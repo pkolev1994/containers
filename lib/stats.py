@@ -6,9 +6,7 @@ import scp
 import socket
 
 #custom libs
-import sys, os
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from nodeconnection import Node
+from lib.nodeconnection import Node
 
 
 class StatsCollector():
@@ -46,7 +44,7 @@ class StatsCollector():
 
 	def list_nodes_hostnames(self):
 		"""
-		Lists all node hostnames in teh swarm
+		Lists all node hostnames in the swarm
 		Args:
 			None
 		Returns:
@@ -129,8 +127,7 @@ class StatsCollector():
 		for host in list_without_manager_host:
 			nodes.append(Node(address=host, \
 								user=self.__user, \
-								password=self.__password, \
-								ssh_client = self.ssh_client))
+								password=self.__password))
 
 		for node in nodes:
 			node.join()
