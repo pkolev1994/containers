@@ -14,7 +14,7 @@ class StatsCollector():
 	class StatsCollector
 	"""
 
-	def __init__(self, **kwargs):
+	def __init__(self):
 		"""
 		Constructor
 		Args:

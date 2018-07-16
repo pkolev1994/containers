@@ -25,8 +25,7 @@ class PlatformOrchastration():
 		self.__password = kwargs.get('password')
 		self.__docker_client_api = docker.from_env()
 
-		self.stats_colector = StatsCollector(username=self.__user, \
-											password=self.__password)
+		self.stats_colector = StatsCollector()
 
 		self.swarm_manager = SwarmManagment(available_servers=self.available_servers,
 											swarm_servers=self.swarm_servers,
