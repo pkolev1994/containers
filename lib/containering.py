@@ -71,18 +71,32 @@ class ContainerManagement():
 		"""
 		docker_api = self.get_docker_api(host_ip)
 		oc_containers = self.get_container_names()
-		print("APP => {}".format(application))
+		print("Aplication {} will be runned on server => {}".format(application, host_ip))
 		for role_config in self.roles_config[application].keys():
 			if not role_config in oc_containers:
 				print("This name is not runned as container => {} with this ip => {}".format \
 					(role_config, self.roles_config[application][role_config]))
+
+				### Two ways:: 1st => run the contaienr and then connect it
+				### to the network 
+				### 2nd => create the container, then connect it to the 
+				### network and then start it
+
+				# runned_container = docker_api.containers. \
+				# 			run(image = "g2.pslab.opencode.com:5000/{}1:v2". \
+				# 			format(application), \
+				# 			hostname = role_config, name = role_config, \
+				# 			privileged = True, detach=True)
+
 				runned_container = docker_api.containers. \
-							run(image = "g2.pslab.opencode.com:5000/{}1:v2". \
+							create(image = "g2.pslab.opencode.com:5000/{}1:v2". \
 							format(application), \
 							hostname = role_config, name = role_config, \
 							privileged = True, detach=True)
 				docker_api.networks.get("external").connect(runned_container, \
 					ipv4_address=self.roles_config[application][role_config])
+				runned_container.start()
+				break
 
 
 	def stop_container(self, name, host_ip):
