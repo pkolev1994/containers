@@ -1,12 +1,17 @@
 import paramiko
 import re
 
+#custom libs
+from lib.containering import parse_config
+from lib.containering import update_config
+
+
 class SwarmManagment():
 	"""
 	Swarm manager class
 	"""
 
-	def __init__(self, **kwargs):
+	def __init__(self):
 		"""
 		Constructor of swarm manager
 		Args:
@@ -19,13 +24,21 @@ class SwarmManagment():
 		"""
 		self.ssh_client = paramiko.SSHClient()
 		self.ssh_client.load_system_host_keys()
-		self.available_servers = kwargs.get('available_servers', [])
-		self.swarm_servers = kwargs.get('swarm_servers', [])
-		self.user = kwargs.get('user')
-		self.password = kwargs.get('password')
-		self.master_nodes = kwargs.get('master_nodes', [])
-		self.__master = kwargs.get('master', None)
-		self.__token = kwargs.get('token')
+		# self.available_servers = kwargs.get('available_servers', [])
+		# self.swarm_servers = kwargs.get('swarm_servers', [])
+		# self.user = kwargs.get('user')
+		# self.password = kwargs.get('password')
+		# self.master_nodes = kwargs.get('master_nodes', [])
+		# self.__master = kwargs.get('master', None)
+		# self.__token = kwargs.get('token')
+
+		self.available_servers = parse_config("orchastrator.json")["available_servers"]
+		self.swarm_servers = parse_config("orchastrator.json")["swarm_servers"]
+		self.user = parse_config("orchastrator.json")["user"]
+		self.password = parse_config("orchastrator.json")["password"]
+		self.master_nodes = parse_config("orchastrator.json")["master_nodes"]
+		self.__master = parse_config("orchastrator.json")["master"]
+		self.__token = parse_config("orchastrator.json")["token"]
 
 	def add_server(self, host_ips):
 		"""
@@ -40,10 +53,13 @@ class SwarmManagment():
 		if isinstance(host_ips, str):
 			if host_ips not in self.available_servers:
 				self.available_servers.append(host_ips)
+				update_config("orchastrator.json", "available_servers", host_ips)
 			else:
 				print("The host ip is already in the list")
 		elif isinstance(host_ips, list):
 			self.available_servers = list(set(self.available_servers + host_ips))
+			update_config("orchastrator.json", "available_servers", host_ips)
+
 		else:
 			raise TypeError("Server should be list or string")
 
@@ -60,6 +76,7 @@ class SwarmManagment():
 		if isinstance(host_ip, str):
 			if host_ip not in self.swarm_servers:
 				self.swarm_servers.append(host_ip)
+				update_config("orchastrator.json", "swarm_servers", host_ips)
 			else:
 				print("The host ip is already in the list")
 
@@ -146,6 +163,10 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.master_nodes.append(host_ip)
+		update_config("orchastrator.json", "master_nodes", host_ip)
+
+
+
 
 
 	def remove_master_node(self, host_ip):
@@ -209,6 +230,8 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.__master = host_ip
+		update_config("orchastrator.json", "master", host_ip)
+
 
 
 	def change_token(self, token):
@@ -218,3 +241,4 @@ class SwarmManagment():
 			token(str)
 		"""
 		self.__token = token
+		update_config("orchastrator.json", "token", token)

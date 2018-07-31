@@ -3,16 +3,19 @@ import json
 import re
 from collections import Counter
 
+#custom lib
+from lib.containering import parse_config
 
 class DecisionMaker():
 
-	def __init__(self, available_servers):
+	def __init__(self):
 		"""
 		Constructor
 		Args:
 			available_servers(list)
 		"""
-		self.available_servers = available_servers
+
+		self.available_servers = parse_config('orchastrator.json')['available_servers']
 		self.apps_by_hosts = self.take_containers_by_hosts()
 
 	@staticmethod
@@ -66,16 +69,37 @@ class DecisionMaker():
 		return container_count
 
 
-	def making_host_decision(self, application):
+	def making_host_decision(self, application, decision):
 		"""
 		Make decision on which host to run container
 		Args:
 			application(str)
+			decision(str)
 		Returns:
 			host(str)
 		"""
 		app_by_hosts = self.counting_app_by_host(application)
-		for host in app_by_hosts.keys():
-			if app_by_hosts[host][application] == 0:
+		host_number = len(app_by_hosts.keys())
+		if decision is 'up':
+			application_number = 0
+			for host in app_by_hosts.keys():
+				if app_by_hosts[host][application] == 0:
+					return host
+				else:
+					application_number += app_by_hosts[host][application]
+			average_app_number = round(application_number/host_number)			
+			for host in app_by_hosts.keys():
+				if app_by_hosts[host][application] < average_app_number:
+					return host
+			for host in app_by_hosts.keys():
 				return host
-			
+		elif decision is 'down':
+			application_number = 0
+			for host in app_by_hosts.keys():
+					application_number += app_by_hosts[host][application]
+			average_app_number = round(application_number/host_number)			
+			for host in app_by_hosts.keys():
+				if app_by_hosts[host][application] > average_app_number:
+					return host
+			for host in app_by_hosts.keys():
+				return host

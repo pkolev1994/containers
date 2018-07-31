@@ -1,0 +1,14 @@
+{
+	
+	"available_servers": ["10.102.7.122", 
+						  "10.102.7.123", 
+						  "10.102.7.124"],
+	"swarm_servers": [],
+	"token": "",
+	"user": "",
+	"password": "",
+	"master_nodes": "",
+	"master": ""
+
+
+}

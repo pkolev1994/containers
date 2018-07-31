@@ -4,6 +4,7 @@ import docker
 #custom libs import
 from lib.swarming import SwarmManagment
 from lib.stats import StatsCollector
+from lib.containering import parse_config
 
 
 class PlatformOrchastration():
@@ -11,32 +12,46 @@ class PlatformOrchastration():
 	Platform_Orchastration object
 	"""
 	
-	def __init__(self, **kwargs):
+	def __init__(self):
 		"""
 		Constructor of Platform_Orchastration
 		"""
 
-		self.available_servers = kwargs.get('available_servers', [])
-		self.swarm_servers = kwargs.get('swarm_servers', [])
-		self.master_nodes = kwargs.get('master_nodes', [])
-		self.__master = kwargs.get('master', None)
-		self.__token = kwargs.get('token')
-		self.__user = kwargs.get('username')
-		self.__password = kwargs.get('password')
+		# self.available_servers = kwargs.get('available_servers', [])
+		# self.swarm_servers = kwargs.get('swarm_servers', [])
+		# self.master_nodes = kwargs.get('master_nodes', [])
+		# self.__master = kwargs.get('master', None)
+		# self.__token = kwargs.get('token')
+		# self.__user = kwargs.get('username')
+		# self.__password = kwargs.get('password')
+		# self.__docker_client_api = docker.from_env()
+
+		# self.stats_colector = StatsCollector()
+
+		# self.swarm_manager = SwarmManagment(available_servers=self.available_servers,
+		# 									swarm_servers=self.swarm_servers,
+		# 									master_nodes=self.master_nodes,
+		# 									master=self.__master,
+		# 									token=self.__token,
+		# 									user=self.__user,
+		# 									password=self.__password
+		# 									)
+
+
+
+
+		self.available_servers = parse_config("orchastrator.json")["available_servers"]
+		self.swarm_servers = parse_config("orchastrator.json")["swarm_servers"]
+		self.user = parse_config("orchastrator.json")["user"]
+		self.password = parse_config("orchastrator.json")["password"]
+		self.master_nodes = parse_config("orchastrator.json")["master_nodes"]
+		self.__master = parse_config("orchastrator.json")["master"]
+		self.__token = parse_config("orchastrator.json")["token"]
 		self.__docker_client_api = docker.from_env()
 
 		self.stats_colector = StatsCollector()
 
-		self.swarm_manager = SwarmManagment(available_servers=self.available_servers,
-											swarm_servers=self.swarm_servers,
-											master_nodes=self.master_nodes,
-											master=self.__master,
-											token=self.__token,
-											user=self.__user,
-											password=self.__password
-											)
-
-
+		self.swarm_manager = SwarmManagment()
 	def take_containers_stats(self):
 		"""
 		Take the container statistics

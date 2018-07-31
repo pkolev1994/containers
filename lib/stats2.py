@@ -7,6 +7,7 @@ import socket
 
 #custom libs
 from lib.nodeconnection import Node
+from lib.containering import parse_config
 
 
 class StatsCollector():
@@ -14,15 +15,14 @@ class StatsCollector():
 	class StatsCollector
 	"""
 
-	def __init__(self, **kwargs):
+	def __init__(self):
 		"""
 		Constructor
-		Args:
-			username(str)
-			password(str)
 		"""
-		self.__user = kwargs.get('username')
-		self.__password = kwargs.get('password')
+		# self.__user = kwargs.get('username')
+		# self.__password = kwargs.get('password')
+		self.__user = parse_config("orchastrator.json")["user"]
+		self.__password = parse_config("orchastrator.json")["password"]
 		self.__docker_client_api = docker.from_env()
 		self.ssh_client = paramiko.client.SSHClient()
 		self.host_ip = socket.gethostbyname(socket.gethostname())

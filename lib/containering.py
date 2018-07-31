@@ -1,19 +1,42 @@
 import docker
 import json
 
-def parse_role_config():
+
+
+def parse_config(json_file):
 	"""
-	Parse test_role_config.json and load it to a dictionary
+	Parse json_file and load it to a dictionary
 	Returns:
 		js_data(dict)
 	"""
 	try:
-		with open('types_instances.json') as json_data:
+		with open(json_file) as json_data:
 			js_data = json.load(json_data)
 	except IOError:
-		raise("File => role_config.json couldn't be opened for read!")
+		raise("File => {} couldn't be opened for read!".format(json_file))
 
 	return js_data
+
+
+
+def update_config(json_file, key, value):
+	"""
+	Update json_file
+	"""
+
+	jsonFile = open(json_file, "r") # Open the JSON file for reading
+	data = json.load(jsonFile) # Read the JSON into the buffer
+	jsonFile.close() # Close the JSON file
+
+
+	if key is 'available_servers' or key is 'swarm_servers':
+		data[key].append(value)
+	else:
+		data[key] = value
+	## Save our changes to JSON file
+	jsonFile = open(json_file, "w+")
+	jsonFile.write(json.dumps(data,  indent=4))
+	jsonFile.close()
 
 
 
@@ -29,15 +52,15 @@ class ContainerManagement():
 		Args:
 			available_servers(list)
 		"""
-		self.available_servers = available_servers
-		self.roles_config = parse_role_config()
+		self.available_servers = parse_config('available_servers.json')['available_servers']
+		self.roles_config = parse_config('types_instances.json')
 		
 
 	def add_server(self, host_ips):
 		"""
 		Add server to available_servers
 		If the server consist in the self.available_servers
-	 	it won't be add
+		it won't be add
 		Args:
 			host_ips(list or str)
 		Returns:
@@ -46,10 +69,12 @@ class ContainerManagement():
 		if isinstance(host_ips, str):
 			if host_ips not in self.available_servers:
 				self.available_servers.append(host_ips)
+				update_config("orchastrator.json", "available_servers", host_ips)
 			else:
 				print("The host ip is already in the list")
 		elif isinstance(host_ips, list):
 			self.available_servers = list(set(self.available_servers + host_ips))
+			update_config("orchastrator.json", "available_servers", host_ips)
 		else:
 			raise TypeError("Server should be list or string")
 
