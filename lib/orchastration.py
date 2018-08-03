@@ -38,8 +38,6 @@ class PlatformOrchastration():
 		# 									)
 
 
-
-
 		self.available_servers = parse_config("orchastrator.json")["available_servers"]
 		self.swarm_servers = parse_config("orchastrator.json")["swarm_servers"]
 		self.user = parse_config("orchastrator.json")["user"]
@@ -48,10 +46,11 @@ class PlatformOrchastration():
 		self.__master = parse_config("orchastrator.json")["master"]
 		self.__token = parse_config("orchastrator.json")["token"]
 		self.__docker_client_api = docker.from_env()
-
 		self.stats_colector = StatsCollector()
 
 		self.swarm_manager = SwarmManagment()
+
+		
 	def take_containers_stats(self):
 		"""
 		Take the container statistics

@@ -9,6 +9,7 @@ def parse_config(json_file):
 	Returns:
 		js_data(dict)
 	"""
+
 	try:
 		with open(json_file) as json_data:
 			js_data = json.load(json_data)
@@ -19,7 +20,7 @@ def parse_config(json_file):
 
 
 
-def update_config(json_file, key, value):
+def update_config(json_file, key, value, state):
 	"""
 	Update json_file
 	"""
@@ -29,11 +30,18 @@ def update_config(json_file, key, value):
 	jsonFile.close() # Close the JSON file
 
 
-	if key is 'available_servers' or key is 'swarm_servers':
-		data[key].append(value)
-	else:
-		data[key] = value
+	if state is 'add':
+		if key is 'available_servers' or key is 'swarm_servers':
+			data[key].append(value)
+		else:
+			data[key] = value
+	elif state is 'remove':
+		if key is 'available_servers' or key is 'swarm_servers':
+			data[key].remove(value)
+		else:
+			data[key] = value		
 	## Save our changes to JSON file
+
 	jsonFile = open(json_file, "w+")
 	jsonFile.write(json.dumps(data,  indent=4))
 	jsonFile.close()
@@ -46,46 +54,47 @@ class ContainerManagement():
 	stopping contrainers 
 	"""
 
-	def __init__(self, available_servers):
+	def __init__(self):
 		"""
 		Constructor
 		Args:
 			available_servers(list)
 		"""
-		self.available_servers = parse_config('available_servers.json')['available_servers']
+		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
 		self.roles_config = parse_config('types_instances.json')
 		
 
 	def add_server(self, host_ips):
 		"""
-		Add server to available_servers
-		If the server consist in the self.available_servers
+		Add server to swarm_servers
+		If the server consist in the self.swarm_servers
 		it won't be add
 		Args:
 			host_ips(list or str)
 		Returns:
-			Append to self.available_servers the host_ips
+			Append to self.swarm_servers the host_ips
 		"""
 		if isinstance(host_ips, str):
-			if host_ips not in self.available_servers:
-				self.available_servers.append(host_ips)
-				update_config("orchastrator.json", "available_servers", host_ips)
+			if host_ips not in self.swarm_servers:
+				self.swarm_servers.append(host_ips)
+				update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
 			else:
 				print("The host ip is already in the list")
 		elif isinstance(host_ips, list):
-			self.available_servers = list(set(self.available_servers + host_ips))
-			update_config("orchastrator.json", "available_servers", host_ips)
+			self.swarm_servers = list(set(self.swarm_servers + host_ips))
+			update_config("orchastrator.json", "swarm_servers", host_ips)
 		else:
 			raise TypeError("Server should be list or string")
 
 
 	def remove_available_server(self, host_ip):
 		"""
-		Remove server ip from self.available_servers
+		Remove server ip from self.swarm_servers
 		Args:
 			host_ip(str)
 		"""
-		self.available_servers.remove(host_ip)
+		self.swarm_servers.remove(host_ip)
+		update_config("orchastrator.json", "swarm_servers", host_ips, state='remove')
 
 
 	def run_container(self, host_ip, application):
@@ -118,7 +127,8 @@ class ContainerManagement():
 							format(application), \
 							hostname = role_config, name = role_config, \
 							privileged = True, detach=True)
-				docker_api.networks.get("external").connect(runned_container, \
+				docker_api.networks.get(parse_config('orchastrator.json')['network_name']). \
+					connect(runned_container, \
 					ipv4_address=self.roles_config[application][role_config])
 				runned_container.start()
 				break
@@ -152,7 +162,7 @@ class ContainerManagement():
 		Args:
 		"""
 		container_names = {}
-		for server in self.available_servers:
+		for server in self.swarm_servers:
 			docker_api = self.get_docker_api(server)
 			for container in docker_api.containers.list():
 				container_names[container.name] = container

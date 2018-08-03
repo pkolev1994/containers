@@ -1,7 +1,7 @@
 import time
 from lib.containering import ContainerManagement
 
-container_manager = ContainerManagement(['10.102.7.123', '10.102.7.122'])
+container_manager = ContainerManagement()
 
 while True:
         print("Names => {}".format(container_manager.get_container_names()))

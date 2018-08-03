@@ -40,6 +40,7 @@ class SwarmManagment():
 		self.__master = parse_config("orchastrator.json")["master"]
 		self.__token = parse_config("orchastrator.json")["token"]
 
+
 	def add_server(self, host_ips):
 		"""
 		Add server to available_servers
@@ -53,12 +54,12 @@ class SwarmManagment():
 		if isinstance(host_ips, str):
 			if host_ips not in self.available_servers:
 				self.available_servers.append(host_ips)
-				update_config("orchastrator.json", "available_servers", host_ips)
+				update_config("orchastrator.json", "available_servers", host_ips, state='add')
 			else:
 				print("The host ip is already in the list")
 		elif isinstance(host_ips, list):
 			self.available_servers = list(set(self.available_servers + host_ips))
-			update_config("orchastrator.json", "available_servers", host_ips)
+			update_config("orchastrator.json", "available_servers", host_ips, state='add')
 
 		else:
 			raise TypeError("Server should be list or string")
@@ -76,7 +77,7 @@ class SwarmManagment():
 		if isinstance(host_ip, str):
 			if host_ip not in self.swarm_servers:
 				self.swarm_servers.append(host_ip)
-				update_config("orchastrator.json", "swarm_servers", host_ips)
+				update_config("orchastrator.json", "swarm_servers", host_ip, state='add')
 			else:
 				print("The host ip is already in the list")
 
@@ -106,6 +107,8 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.available_servers.remove(host_ip)
+		update_config("orchastrator.json", "available_servers", host_ip, state='remove')
+
 
 	def remove_swarm_server(self, host_ip):
 		"""
@@ -114,6 +117,7 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.swarm_servers.remove(host_ip)
+		update_config("orchastrator.json", "swarm_servers", host_ip, state='remove')
 
 
 	def join_server_swarm(self, host_ip):
@@ -163,7 +167,7 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.master_nodes.append(host_ip)
-		update_config("orchastrator.json", "master_nodes", host_ip)
+		update_config("orchastrator.json", "master_nodes", host_ip, state='add')
 
 
 
@@ -176,6 +180,7 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.master_nodes.remove(host_ip)
+		update_config("orchastrator.json", "master_nodes", host_ip, state='remove')
 
 
 	def promote_to_manager(self, host_ip):
@@ -230,7 +235,7 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.__master = host_ip
-		update_config("orchastrator.json", "master", host_ip)
+		update_config("orchastrator.json", "master", host_ip, state="add")
 
 
 
@@ -241,4 +246,4 @@ class SwarmManagment():
 			token(str)
 		"""
 		self.__token = token
-		update_config("orchastrator.json", "token", token)
+		update_config("orchastrator.json", "token", token, state="add")

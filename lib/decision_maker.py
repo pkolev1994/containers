@@ -5,6 +5,7 @@ from collections import Counter
 
 #custom lib
 from lib.containering import parse_config
+from lib.swarming import SwarmManagment
 
 class DecisionMaker():
 
@@ -15,6 +16,8 @@ class DecisionMaker():
 			available_servers(list)
 		"""
 
+		self.swarm_manager = SwarmManagment()
+		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
 		self.available_servers = parse_config('orchastrator.json')['available_servers']
 		self.apps_by_hosts = self.take_containers_by_hosts()
 
@@ -31,8 +34,6 @@ class DecisionMaker():
 	def list_containers_by_host(host_ip):
 
 		docker_api = DecisionMaker.get_docker_api(host_ip)
-
-		print("CC => {}".format(docker_api.containers.list()))
 		cont_names = []
 		for container in docker_api.containers.list():
 			app_name_search = re.search('(.*?)\_\d+', container.name)
@@ -45,7 +46,7 @@ class DecisionMaker():
 	def take_containers_by_hosts(self):
 
 		names_by_hosts = {}
-		for host in self.available_servers:
+		for host in self.swarm_servers:
 			names_by_hosts[host] = dict(Counter(self.list_containers_by_host(host)))
 		return names_by_hosts
 
@@ -78,6 +79,7 @@ class DecisionMaker():
 		Returns:
 			host(str)
 		"""
+		app_per_node = "{}_per_node".format(application)
 		app_by_hosts = self.counting_app_by_host(application)
 		host_number = len(app_by_hosts.keys())
 		if decision is 'up':
@@ -87,9 +89,23 @@ class DecisionMaker():
 					return host
 				else:
 					application_number += app_by_hosts[host][application]
-			average_app_number = round(application_number/host_number)			
+			average_app_number = round(application_number/host_number)
+			print("Average => {}".format(average_app_number))
+			print("Appp => {}".format(parse_config('orchastrator.json')[app_per_node]))
+			# print("Servers => ")
+			###logic for adding node to the swarm
+			if average_app_number == parse_config('orchastrator.json')[app_per_node]:
+				if self.available_servers:
+					self.swarm_manager.join_server_swarm(host_ip = self.available_servers[0])
+					return self.available_servers[0]
+				else:
+					print("There are not any available servers should  \
+							look at host stat to run on the lowest  \
+							loaded host  a container")
+			###logic for adding node to the swarm			
 			for host in app_by_hosts.keys():
-				if app_by_hosts[host][application] < average_app_number:
+				if app_by_hosts[host][application] < average_app_number and \
+					app_by_hosts[host][application] < parse_config('orchastrator.json')[app_per_node]:
 					return host
 			for host in app_by_hosts.keys():
 				return host
@@ -99,7 +115,8 @@ class DecisionMaker():
 					application_number += app_by_hosts[host][application]
 			average_app_number = round(application_number/host_number)			
 			for host in app_by_hosts.keys():
-				if app_by_hosts[host][application] > average_app_number:
+				if app_by_hosts[host][application] > average_app_number and \
+					app_by_hosts[host][application] < parse_config('orchastrator.json')[app_per_node]:
 					return host
 			for host in app_by_hosts.keys():
 				return host
