@@ -89,7 +89,7 @@ class DecisionMaker():
 					return host
 				else:
 					application_number += app_by_hosts[host][application]
-			average_app_number = round(application_number/host_number)
+			average_app_number = application_number/host_number
 			print("Average => {}".format(average_app_number))
 			print("Appp => {}".format(parse_config('orchastrator.json')[app_per_node]))
 			# print("Servers => ")
@@ -113,7 +113,13 @@ class DecisionMaker():
 			application_number = 0
 			for host in app_by_hosts.keys():
 					application_number += app_by_hosts[host][application]
-			average_app_number = round(application_number/host_number)			
+
+			min_app = "{}_min".format(application)
+			print("Min_app => {}\t app_num {}".format(parse_config('orchastrator.json')[min_app], application_number))
+			if application_number == parse_config('orchastrator.json')[min_app]:
+				return None
+
+			average_app_number = application_number/host_number			
 			for host in app_by_hosts.keys():
 				if app_by_hosts[host][application] > average_app_number and \
 					app_by_hosts[host][application] < parse_config('orchastrator.json')[app_per_node]:

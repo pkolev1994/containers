@@ -10,6 +10,8 @@
 	"master": "10.102.7.123",
 	"network_name": "internal_macvlan",
 	"br_per_node": 2,
-	"ipgw_per_node": 2
-
+	"ipgw_per_node": 2,
+	"br_min": 3,
+	"ipgw_min": 3
+	
 }
