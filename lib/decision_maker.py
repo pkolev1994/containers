@@ -5,7 +5,9 @@ from collections import Counter
 
 #custom lib
 from lib.containering import parse_config
+from lib.containering import update_config
 from lib.swarming import SwarmManagment
+from lib.containering import ContainerManagement
 
 class DecisionMaker():
 
@@ -16,7 +18,6 @@ class DecisionMaker():
 			available_servers(list)
 		"""
 
-		self.swarm_manager = SwarmManagment()
 		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
 		self.available_servers = parse_config('orchastrator.json')['available_servers']
 		self.apps_by_hosts = self.take_containers_by_hosts()
@@ -46,7 +47,7 @@ class DecisionMaker():
 	def take_containers_by_hosts(self):
 
 		names_by_hosts = {}
-		for host in self.swarm_servers:
+		for host in parse_config('orchastrator.json')['swarm_servers']:
 			names_by_hosts[host] = dict(Counter(self.list_containers_by_host(host)))
 		return names_by_hosts
 
@@ -70,7 +71,27 @@ class DecisionMaker():
 		return container_count
 
 
-	def making_host_decision(self, application, decision):
+	def calculating_app_on_hosts(self):
+		"""
+	`	Args:
+			None
+		Returns:
+			app_counts(dict)
+		"""
+		applications = ["br", "ipgw"]
+
+		app_counts = {}
+		for app in applications:
+			app_count = self.counting_app_by_host(app)
+			number = 0
+			for host in app_count:
+				number += app_count[host][app]
+			app_counts[app] = number
+
+		return app_counts
+
+
+	def making_host_decision(self, application, decision, release_node=False):
 		"""
 		Make decision on which host to run container
 		Args:
@@ -79,8 +100,12 @@ class DecisionMaker():
 		Returns:
 			host(str)
 		"""
+
+		swarm_manager = SwarmManagment()
 		app_per_node = "{}_per_node".format(application)
 		app_by_hosts = self.counting_app_by_host(application)
+		if release_node:
+			del(app_by_hosts[release_node])
 		host_number = len(app_by_hosts.keys())
 		if decision is 'up':
 			application_number = 0
@@ -92,12 +117,11 @@ class DecisionMaker():
 			average_app_number = application_number/host_number
 			print("Average => {}".format(average_app_number))
 			print("Appp => {}".format(parse_config('orchastrator.json')[app_per_node]))
-			# print("Servers => ")
 			###logic for adding node to the swarm
 			if average_app_number == parse_config('orchastrator.json')[app_per_node]:
-				if self.available_servers:
-					self.swarm_manager.join_server_swarm(host_ip = self.available_servers[0])
-					return self.available_servers[0]
+				if parse_config('orchastrator.json')['available_servers']:
+					swarm_manager.join_server_swarm(host_ip = parse_config('orchastrator.json')['available_servers'][0])
+					return parse_config('orchastrator.json')['available_servers'][0]
 				else:
 					print("There are not any available servers should  \
 							look at host stat to run on the lowest  \
@@ -126,3 +150,23 @@ class DecisionMaker():
 					return host
 			for host in app_by_hosts.keys():
 				return host
+
+
+
+	def release_node(self, host):
+		"""
+		Stop all containers from the passed node,
+		move them to the other hosts in self.swarm_servers,
+		and move the host to available.servers
+		"""
+		container_manager = ContainerManagement()
+		swarm_manager = SwarmManagment()
+		apps_by_host = container_manager.get_container_names_by_host(host)
+		for app in apps_by_host:
+			container_manager.stop_container(name=app, host_ip=host)
+			new_host = self.making_host_decision(application=app, decision='up', release_node=host)
+			app_name_search = re.search('(.*?)\_\d+', app)
+			if app_name_search:
+				app_name = app_name_search.group(1)		
+			container_manager.run_container(host_ip=new_host, application=app_name)
+		swarm_manager.leave_server_swarm(host_ip=host)

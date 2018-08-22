@@ -61,7 +61,7 @@ class ContainerManagement():
 			available_servers(list)
 		"""
 		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
-		self.roles_config = parse_config('types_instances.json')
+		self.roles_config = parse_config('orchastrator.json')['types_instances']
 		
 
 	def add_server(self, host_ips):
@@ -82,7 +82,7 @@ class ContainerManagement():
 				print("The host ip is already in the list")
 		elif isinstance(host_ips, list):
 			self.swarm_servers = list(set(self.swarm_servers + host_ips))
-			update_config("orchastrator.json", "swarm_servers", host_ips)
+			update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
 		else:
 			raise TypeError("Server should be list or string")
 
@@ -162,9 +162,25 @@ class ContainerManagement():
 		Args:
 		"""
 		container_names = {}
-		for server in self.swarm_servers:
+		for server in parse_config('orchastrator.json')['swarm_servers']:
 			docker_api = self.get_docker_api(server)
 			for container in docker_api.containers.list():
 				container_names[container.name] = container
 
 		return container_names
+
+
+	def get_container_names_by_host(self, host):
+		"""
+		Get container names by host
+		Args:
+			host(str)
+		Returns:
+			container_names(list)
+		"""
+		container_names = []
+		docker_api = self.get_docker_api(host)
+		for container in docker_api.containers.list():
+			container_names.append(container.name)
+
+		return container_names		

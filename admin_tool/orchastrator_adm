@@ -1,0 +1,23 @@
+#!/usr/bin/env /usr/bin/python3.6
+import sys
+
+
+option = sys.argv[1]
+option_2 = sys.argv[2]
+
+if option is 'release':
+	with open("/home/pkolev/Containers/testbed_2/admin_requests.txt") as admin_file:
+		admin_file.write("release {}".format(option_2))
+elif option == "start" and option_2 == "api":
+	print("Starting orchastrator api ...")
+	os.system("/usr/bin/python3.6 /home/pkolev/Containers/testbed_2/orchastration_api_2.py >/dev/null &")
+elif option == "stop" and option_2 == "api":
+	pstring = "orchastration_api_2.py"
+	for line in os.popen("ps ax | grep " + pstring + " | grep -v grep"):
+		fields = line.split()
+		pid = fields[0]
+	print("Stopping orchastration_api_2 ...")
+	os.kill(int(pid), signal.SIGKILL)
+else:
+	print("Usage of orchastrator_adm : ")
+	print("orchastrator_adm strat/stop api")

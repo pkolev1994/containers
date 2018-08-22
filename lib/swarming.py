@@ -41,6 +41,17 @@ class SwarmManagment():
 		self.__token = parse_config("orchastrator.json")["token"]
 
 
+	@staticmethod
+	def get_docker_api(host_ip):
+		"""
+		Get docker api client
+		Args:
+			host_ip(str)
+		"""
+		return docker.DockerClient(base_url='tcp://{}:2375'.format(host_ip))
+
+
+
 	def add_server(self, host_ips):
 		"""
 		Add server to available_servers
@@ -88,7 +99,7 @@ class SwarmManagment():
 		Returns:
 			self.available_servers(list)
 		"""
-		return self.available_servers
+		return parse_config("orchastrator.json")["available_servers"]
 
 
 	def list_swarm_servers(self):
@@ -97,7 +108,7 @@ class SwarmManagment():
 		Returns:
 			self.swarm_servers(list)
 		"""
-		return self.swarm_servers
+		return parse_config("orchastrator.json")["swarm_servers"]
 
 
 	def remove_available_server(self, host_ip):
@@ -126,15 +137,31 @@ class SwarmManagment():
 		Args:
 			host_ip(str)
 		"""
-		self.ssh_client.connect(host_ip, username=self.user, password=self.password)
-		_, stdout, _ = self.ssh_client.exec_command('docker swarm join --token {} {}:2377'. \
-													format(self.__token, self.__master))
-		stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
-		if re.search(r'This node joined a swarm as a worker', stdout, re.I|re.S):
+		#####First way
+		# self.ssh_client.connect(host_ip, username=self.user, password=self.password)
+		# _, stdout, _ = self.ssh_client.exec_command('docker swarm join --token {} {}:2377'. \
+		# 											format(self.__token, self.__master))
+		# stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
+		# if re.search(r'This node joined a swarm as a worker', stdout, re.I|re.S):
+		# 	self.remove_available_server(host_ip)
+		# 	self.add_swarm_server(host_ip)
+		# else:
+		# 	return "Node {} can't be joined to the swarm".format(host_ip)
+
+
+		#####Second way
+
+		docker_api = self.get_docker_api(host_ip)
+		response = docker_api.swarm.join(remote_addrs= \
+						[parse_config("orchastrator.json")["master"]], \
+						join_token = parse_config("orchastrator.json")["token"])
+		if response == True:
 			self.remove_available_server(host_ip)
 			self.add_swarm_server(host_ip)
 		else:
 			return "Node {} can't be joined to the swarm".format(host_ip)
+
+		#####Second way
 
 	def leave_server_swarm(self, host_ip):
 		"""
@@ -142,23 +169,36 @@ class SwarmManagment():
 		Args:
 			host_ip(str)
 		"""
-		if host_ip in self.master_nodes:
-			print("Demoting the node from manager")
-			self.demote_manager(host_ip)
 
-		self.ssh_client.connect(host_ip, username=self.user, password=self.password)
-		_, stdout, _ = self.ssh_client.exec_command('docker swarm leave')
-		stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
-		hostname = self.get_hostname(host_ip)
-		if re.search(r'Node left the swarm', stdout, re.I|re.S):
-			self.ssh_client.connect(self.__master, username=self.user, password=self.password)
-			_, leave_stdout, _ = self.ssh_client.exec_command('docker node rm -f {}'.format(hostname))
-			leave_stdout = '\n'.join(map(lambda x: x.rstrip(), leave_stdout.readlines()))
+		#####First way
+		# if host_ip in parse_config("orchastrator.json")["master_nodes"]:
+		# 	print("Demoting the node from manager")
+		# 	self.demote_manager(host_ip)
+
+		# self.ssh_client.connect(host_ip, username=self.user, password=self.password)
+		# _, stdout, _ = self.ssh_client.exec_command('docker swarm leave')
+		# stdout = '\n'.join(map(lambda x: x.rstrip(), stdout.readlines()))
+		# print("STDOUT => {}".format(stdout))
+		# stdout = "Node left the swarm"
+		# hostname = self.get_hostname(host_ip)
+		# if re.search(r'Node left the swarm', stdout, re.I|re.S):
+		# 	print("YEEEEE")
+		# 	self.ssh_client.connect(self.__master, username=self.user, password=self.password)
+		# 	_, leave_stdout, _ = self.ssh_client.exec_command('docker node rm -f {}'.format(hostname))
+		# 	leave_stdout = '\n'.join(map(lambda x: x.rstrip(), leave_stdout.readlines()))
+		# 	self.add_server(host_ip)
+		# 	self.remove_swarm_server(host_ip)						
+		# else:
+		# 	return "Node {} can't left the swarm for some reason".format(host_ip)
+
+		#####Second way
+		docker_api = self.get_docker_api(host_ip)
+		response = docker_api.swarm.leave(force=True)
+		if response:
 			self.add_server(host_ip)
-			self.remove_swarm_server(host_ip)						
+			self.remove_swarm_server(host_ip)		
 		else:
 			return "Node {} can't left the swarm for some reason".format(host_ip)
-
 
 	def add_master_node(self, host_ip):
 		"""
