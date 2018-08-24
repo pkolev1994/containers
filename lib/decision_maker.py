@@ -8,6 +8,8 @@ from lib.containering import parse_config
 from lib.containering import update_config
 from lib.swarming import SwarmManagment
 from lib.containering import ContainerManagement
+from lib.logger import Logger
+
 
 class DecisionMaker():
 
@@ -100,7 +102,7 @@ class DecisionMaker():
 		Returns:
 			host(str)
 		"""
-
+		logger = Logger(filename = "orchastrator", logger_name = "DecisionMaker")
 		swarm_manager = SwarmManagment()
 		app_per_node = "{}_per_node".format(application)
 		app_by_hosts = self.counting_app_by_host(application)
@@ -115,17 +117,25 @@ class DecisionMaker():
 				else:
 					application_number += app_by_hosts[host][application]
 			average_app_number = application_number/host_number
-			print("Average => {}".format(average_app_number))
-			print("Appp => {}".format(parse_config('orchastrator.json')[app_per_node]))
+			# print("Average => {}".format(average_app_number))
+			# print("Appp => {}".format(parse_config('orchastrator.json')[app_per_node]))
+			logger.info("Aplication {} ||| Average => {}\tApp_per_node => {}". \
+				format(application, average_app_number, parse_config('orchastrator.json')[app_per_node]))
+			logger.clear_handler()
 			###logic for adding node to the swarm
 			if average_app_number == parse_config('orchastrator.json')[app_per_node]:
 				if parse_config('orchastrator.json')['available_servers']:
 					swarm_manager.join_server_swarm(host_ip = parse_config('orchastrator.json')['available_servers'][0])
 					return parse_config('orchastrator.json')['available_servers'][0]
 				else:
-					print("There are not any available servers should  \
+					logger.critical("There are not any available servers should  \
 							look at host stat to run on the lowest  \
 							loaded host  a container")
+					logger.clear_handler()
+					# print("There are not any available servers should  \
+					# 		look at host stat to run on the lowest  \
+					# 		loaded host  a container")
+
 			###logic for adding node to the swarm			
 			for host in app_by_hosts.keys():
 				if app_by_hosts[host][application] < average_app_number and \
@@ -139,7 +149,10 @@ class DecisionMaker():
 					application_number += app_by_hosts[host][application]
 
 			min_app = "{}_min".format(application)
-			print("Min_app => {}\t app_num {}".format(parse_config('orchastrator.json')[min_app], application_number))
+			# print("Min_app => {}\t app_num {}".format(parse_config('orchastrator.json')[min_app], application_number))
+			logger.warning("Application => {} ||| min_apps on platform=> {}\tcurrent app_num {}". \
+				format(application, parse_config('orchastrator.json')[min_app], application_number))
+			logger.clear_handler()
 			if application_number == parse_config('orchastrator.json')[min_app]:
 				return None
 
@@ -150,7 +163,7 @@ class DecisionMaker():
 					return host
 			for host in app_by_hosts.keys():
 				return host
-
+		
 
 
 	def release_node(self, host):

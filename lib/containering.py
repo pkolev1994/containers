@@ -1,6 +1,8 @@
 import docker
 import json
 
+###custom libs
+from lib.logger import Logger
 
 
 def parse_config(json_file):
@@ -9,11 +11,13 @@ def parse_config(json_file):
 	Returns:
 		js_data(dict)
 	"""
-
+	logger = Logger(filename = "orchastrator", logger_name = "parse_config")
 	try:
 		with open(json_file) as json_data:
 			js_data = json.load(json_data)
 	except IOError:
+		logger.error("File => {} couldn't be opened for read!".format(json_file))
+		logger.clear_handler()
 		raise("File => {} couldn't be opened for read!".format(json_file))
 
 	return js_data
@@ -74,16 +78,21 @@ class ContainerManagement():
 		Returns:
 			Append to self.swarm_servers the host_ips
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "ContainerManagement add_server")
 		if isinstance(host_ips, str):
 			if host_ips not in self.swarm_servers:
 				self.swarm_servers.append(host_ips)
 				update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
 			else:
-				print("The host ip is already in the list")
+				# print("The host ip is already in the list")
+				logger.info("The host ip {} is already in the list".format(host_ips))
+				logger.clear_handler()
 		elif isinstance(host_ips, list):
 			self.swarm_servers = list(set(self.swarm_servers + host_ips))
 			update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
 		else:
+			logger.error("Server should be list or string")
+			logger.clear_handler()
 			raise TypeError("Server should be list or string")
 
 
@@ -103,14 +112,17 @@ class ContainerManagement():
 		Args:
 			host_ip(str)
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "ContainerManagement run_container")
 		docker_api = self.get_docker_api(host_ip)
 		oc_containers = self.get_container_names()
-		print("Aplication {} will be runned on server => {}".format(application, host_ip))
+		# print("Aplication {} will be runned on server => {}".format(application, host_ip))
+		logger.info("Aplication {} will be runned on server => {}".format(application, host_ip))
 		for role_config in self.roles_config[application].keys():
 			if not role_config in oc_containers:
-				print("This name is not runned as container => {} with this ip => {}".format \
+				# print("This name is not runned as container => {} with this ip => {}".format \
+				# 	(role_config, self.roles_config[application][role_config]))
+				logger.info("This name is not runned as container => {} with this ip => {}".format \
 					(role_config, self.roles_config[application][role_config]))
-
 				### Two ways:: 1st => run the contaienr and then connect it
 				### to the network 
 				### 2nd => create the container, then connect it to the 
@@ -132,17 +144,21 @@ class ContainerManagement():
 					ipv4_address=self.roles_config[application][role_config])
 				runned_container.start()
 				break
-
+		logger.clear_handler()
 
 	def stop_container(self, name, host_ip):
 		"""
 		Stopping container
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "ContainerManagement stop_container")
 		client = self.get_docker_api(host_ip)
 		container_names = self.get_container_names()
 		container_names[name].stop(timeout = 30)
-		print("Exiting from orchestration func because we stop a container")
-		print("=== Pruned  stopped containers ===")
+		# print("Exiting from orchestration func because we stop a container")
+		# print("=== Pruned  stopped containers ===")
+		logger.info("Exiting from orchestration func because we stop a container")
+		logger.info("=== Pruned  stopped containers ===")
+		logger.clear_handler()
 		client.containers.prune(filters=None)
 
 

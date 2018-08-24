@@ -23,6 +23,7 @@
 	    	}
 	    },
 
+	"logging_level": 10,
 	"available_servers": [],
 	"swarm_servers": ["10.102.7.122", 
 					  "10.102.7.123",

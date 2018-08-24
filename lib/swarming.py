@@ -4,6 +4,7 @@ import re
 #custom libs
 from lib.containering import parse_config
 from lib.containering import update_config
+from lib.logger import Logger
 
 
 class SwarmManagment():
@@ -62,17 +63,22 @@ class SwarmManagment():
 		Returns:
 			Append to self.available_servers the host_ips
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment add_server")
 		if isinstance(host_ips, str):
 			if host_ips not in self.available_servers:
 				self.available_servers.append(host_ips)
 				update_config("orchastrator.json", "available_servers", host_ips, state='add')
 			else:
-				print("The host ip is already in the list")
+				# print("The host ip is already in the list")
+				logger.info("The host ip is already in the list")
+				logger.clear_handler()
 		elif isinstance(host_ips, list):
 			self.available_servers = list(set(self.available_servers + host_ips))
 			update_config("orchastrator.json", "available_servers", host_ips, state='add')
 
 		else:
+			logger.error("Server should be list or string")
+			logger.clear_handler()
 			raise TypeError("Server should be list or string")
 
 
@@ -85,12 +91,15 @@ class SwarmManagment():
 		Returns:
 			Append to self.swarm_servers the host_ip
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment add_swarm_server")
 		if isinstance(host_ip, str):
 			if host_ip not in self.swarm_servers:
 				self.swarm_servers.append(host_ip)
 				update_config("orchastrator.json", "swarm_servers", host_ip, state='add')
 			else:
-				print("The host ip is already in the list")
+				# print("The host ip is already in the list")
+				logger.info("The host ip is already in the list")
+				logger.clear_handler()
 
 
 	def list_available_servers(self):
@@ -151,6 +160,7 @@ class SwarmManagment():
 
 		#####Second way
 
+		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment join_server_swarm")		
 		docker_api = self.get_docker_api(host_ip)
 		response = docker_api.swarm.join(remote_addrs= \
 						[parse_config("orchastrator.json")["master"]], \
@@ -159,6 +169,9 @@ class SwarmManagment():
 			self.remove_available_server(host_ip)
 			self.add_swarm_server(host_ip)
 		else:
+
+			logger.error("Node {} can't be joined to the swarm".format(host_ip))
+			logger.clear_handler()
 			return "Node {} can't be joined to the swarm".format(host_ip)
 
 		#####Second way
@@ -192,12 +205,15 @@ class SwarmManagment():
 		# 	return "Node {} can't left the swarm for some reason".format(host_ip)
 
 		#####Second way
+		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment leave_server_swarm")
 		docker_api = self.get_docker_api(host_ip)
 		response = docker_api.swarm.leave(force=True)
 		if response:
 			self.add_server(host_ip)
 			self.remove_swarm_server(host_ip)		
 		else:
+			logger.error("Node {} can't left the swarm for some reason".format(host_ip))
+			logger.clear_handler()
 			return "Node {} can't left the swarm for some reason".format(host_ip)
 
 	def add_master_node(self, host_ip):
@@ -229,6 +245,7 @@ class SwarmManagment():
 		Args:
 			host_ip(str)
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment promote_to_manager")
 		hostname = self.get_hostname(host_ip)
 		self.ssh_client.connect(self.__master, username=self.user, password=self.password)
 		_, promoted_stdout, _ = self.ssh_client.exec_command('docker node promote {}'.format(hostname))
@@ -236,6 +253,8 @@ class SwarmManagment():
 		if re.search(r'promoted to a manager in the swarm', promoted_stdout, re.I|re.S):
 			self.add_master_node(host_ip)
 		else:
+			logger.error("Node {} can't be promoted to manager".format(host_ip))
+			logger.clear_handler()
 			return "Node {} can't be promoted to manager".format(host_ip)
 
 	def demote_manager(self, host_ip):
@@ -244,6 +263,7 @@ class SwarmManagment():
 		Args:
 			host_ip(str)
 		"""
+		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment demote_manager")
 		hostname = self.get_hostname(host_ip)
 		self.ssh_client.connect(self.__master, username=self.user, password=self.password)
 		_, demoted_stdout, _ = self.ssh_client.exec_command('docker node demote {}'.format(hostname))
@@ -251,6 +271,8 @@ class SwarmManagment():
 		if re.search(r'demoted in the swarm', demoted_stdout, re.I|re.S):
 			self.remove_master_node(host_ip)
 		else:
+			logger.error("Node {} can't be demoted from manager".format(host_ip))
+			logger.clear_handler()
 			return "Node {} can't be demoted from manager".format(host_ip)
 
 	def get_hostname(self, host_ip):
