@@ -1,7 +1,9 @@
 import time
 import re
 import os
+import fcntl
 import socket
+import select
 import json
 from collections import deque
 ###custom libs
@@ -19,9 +21,22 @@ from lib.logger import Logger
 increment_queue_per_app = deque([])
 decrement_queue_per_app = deque([])
 
+host = 'localhost'
+
+######## port for orchastrator_adm request
+admin_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+admin_socket.setblocking(0)
+# admin_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+admin_port = 11001
+admin_socket.bind((host, admin_port))
+admin_socket.listen(5)
+######## port for orchastrator_adm request
+
+
+
 ###port 11000 => listen for stats_collector tool
 stats_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host = 'localhost'
+# host = 'localhost'
 stats_port = 11000
 # bind to the stats_port
 stats_socket.bind((host, stats_port))
@@ -30,6 +45,46 @@ stats_socket.listen(5)
 while True:
 	logger = Logger(filename = "orchastrator", logger_name="Orchastrator API")
 	stats_clientsocket,addr = stats_socket.accept()
+
+######## processing admin requests
+	logger.info("Before")
+	# readable, writable, errored = select.select([admin_socket], [], [])
+	# logger.info("After")
+	# for s in readable:
+	# 	if s is server_socket:
+	# 		client_socket, address = server_socket.accept()
+	# 		read_list.append(client_socket)
+	# 		logger.info("Connection from {}".format(address))
+	# 	else:
+	# 		data = s.recv(1024)
+	# 		if data:
+	# 			# s.send(data)
+	# 			logger.info("DAta from socket on port 11001 => {}".format(data))
+	# 		else:
+	# 			s.close()
+	# 			read_list.remove(s)
+
+
+	flag = True
+	while flag:
+		admin_request = None
+		try:
+			admin_clientsocket, admin_adr = admin_socket.accept()
+			logger.info("{} === {}".format(admin_adr[0], admin_adr[1]))
+			admin_request = admin_clientsocket.recv(1024).decode()
+		except BlockingIOError:
+			logger.info('no data')
+		if admin_request:
+			# a += admin_request
+			# admin_request = json.loads(a.decode('utf-8'))
+			logger.info("Received command from orchastrator_adm => {}".format(admin_request))
+		else:
+			logger.info("No requests from orchastrator_adm")
+			flag = False
+######## processing admin_requests
+
+
+
 
 ########
 	stats_clientsocket.sendall("Give me stats".encode('utf-8'))
@@ -56,7 +111,7 @@ while True:
 
 
 ####for admin request tool
-	# print(decision_maker.release_node('10.102.7.123'))
+	# print(decision_maker.release_node('10.102.7.124'))
 
 ####for admin request tool
 
@@ -74,6 +129,7 @@ while True:
 			container_manager = ContainerManagement()
 			###new object to take the new platform configuration
 			apps_count = decision_maker.calculating_app_on_hosts()
+			logger.info("Appps count => {}".format(apps_count))
 			time.sleep(10)
 ###Running container if minimum quota is not applied
 

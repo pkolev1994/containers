@@ -1,5 +1,6 @@
 import paramiko
 import re
+import docker
 
 #custom libs
 from lib.containering import parse_config
@@ -136,9 +137,13 @@ class SwarmManagment():
 		Args:
 			host_ip(str)
 		"""
-		self.swarm_servers.remove(host_ip)
-		update_config("orchastrator.json", "swarm_servers", host_ip, state='remove')
-
+		if host_ip in self.swarm_servers:
+			self.swarm_servers.remove(host_ip)
+			update_config("orchastrator.json", "swarm_servers", host_ip, state='remove')
+		else:
+			logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment remove_swarm_server")		
+			logger.error("Node {} can't be removed from swarm_servers (It is not in swarm_servers)".format(host_ip))
+			logger.clear_handler()			
 
 	def join_server_swarm(self, host_ip):
 		"""
@@ -162,10 +167,20 @@ class SwarmManagment():
 
 		logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment join_server_swarm")		
 		docker_api = self.get_docker_api(host_ip)
-		response = docker_api.swarm.join(remote_addrs= \
-						[parse_config("orchastrator.json")["master"]], \
-						join_token = parse_config("orchastrator.json")["token"])
+		response = False
+		try:
+			response = docker_api.swarm.join(remote_addrs= \
+							[parse_config("orchastrator.json")["master"]], \
+							join_token = parse_config("orchastrator.json")["token"])
+		except docker.errors.APIError as e:
+			logger.info("Exception handling swarm joining but config will be updated and corrected")
+			logger.clear_handler()
+			self.remove_available_server(host_ip)
+			self.add_swarm_server(host_ip)
+			
 		if response == True:
+			logger.info("Node {} was successfully joined to the swarm".format(host_ip))
+			logger.clear_handler()
 			self.remove_available_server(host_ip)
 			self.add_swarm_server(host_ip)
 		else:

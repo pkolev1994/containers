@@ -102,7 +102,7 @@ class DecisionMaker():
 		Returns:
 			host(str)
 		"""
-		logger = Logger(filename = "orchastrator", logger_name = "DecisionMaker")
+		logger = Logger(filename = "orchastrator", logger_name = "DecisionMaker making_host_decision")
 		swarm_manager = SwarmManagment()
 		app_per_node = "{}_per_node".format(application)
 		app_by_hosts = self.counting_app_by_host(application)
@@ -123,14 +123,15 @@ class DecisionMaker():
 				format(application, average_app_number, parse_config('orchastrator.json')[app_per_node]))
 			logger.clear_handler()
 			###logic for adding node to the swarm
-			if average_app_number == parse_config('orchastrator.json')[app_per_node]:
-				if parse_config('orchastrator.json')['available_servers']:
+			if average_app_number >= parse_config('orchastrator.json')[app_per_node]:
+				if len(parse_config('orchastrator.json')['available_servers']) != 0:
+					new_server = parse_config('orchastrator.json')['available_servers'][0]
 					swarm_manager.join_server_swarm(host_ip = parse_config('orchastrator.json')['available_servers'][0])
-					return parse_config('orchastrator.json')['available_servers'][0]
+					return new_server
 				else:
-					logger.critical("There are not any available servers should  \
-							look at host stat to run on the lowest  \
-							loaded host  a container")
+					logger.critical("There are not any available servers should" \
+									"look at host stat to run on the lowest" \
+									"loaded host a container")
 					logger.clear_handler()
 					# print("There are not any available servers should  \
 					# 		look at host stat to run on the lowest  \
@@ -182,4 +183,6 @@ class DecisionMaker():
 			if app_name_search:
 				app_name = app_name_search.group(1)		
 			container_manager.run_container(host_ip=new_host, application=app_name)
+		logger = Logger(filename = "orchastrator", logger_name = "DecisionMaker release_node")
+		logger.warning("Releasing node {}".format(host))
 		swarm_manager.leave_server_swarm(host_ip=host)

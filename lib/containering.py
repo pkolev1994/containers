@@ -11,11 +11,11 @@ def parse_config(json_file):
 	Returns:
 		js_data(dict)
 	"""
-	logger = Logger(filename = "orchastrator", logger_name = "parse_config")
 	try:
 		with open(json_file) as json_data:
 			js_data = json.load(json_data)
 	except IOError:
+		logger = Logger(filename = "orchastrator", logger_name = "parse_config")
 		logger.error("File => {} couldn't be opened for read!".format(json_file))
 		logger.clear_handler()
 		raise("File => {} couldn't be opened for read!".format(json_file))

@@ -3,13 +3,25 @@ import sys
 import psutil
 import os
 import signal
+import socket
 
 option = sys.argv[1]
 option_2 = sys.argv[2]
 
-if option is 'release':
-	with open("/home/pkolev/Containers/testbed_2/admin_requests.txt") as admin_file:
-		admin_file.write("release {}".format(option_2))
+HOST = 'localhost'
+PORT = 11001
+
+if option == 'release':
+	# with open("/home/pkolev/Containers/testbed_2/admin_requests.txt") as admin_file:
+	# 	admin_file.write("release {}".format(option_2))
+	try:
+		stats_socket_for_sending = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		stats_socket_for_sending.connect((HOST, PORT))
+	except socket.error as e:
+		print("error while connecting, master doesn't respond :: {}".format(e))
+	msg = "release {}".format(option_2)
+	stats_socket_for_sending.sendall(msg.encode("utf-8"))
+	stats_socket_for_sending.close()
 elif option == "start" and option_2 == "api":
 	print("Starting orchastrator api ...")
 	os.chdir("/home/pkolev/Containers/testbed_2/")
