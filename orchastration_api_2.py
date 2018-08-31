@@ -23,31 +23,23 @@ decrement_queue_per_app = deque([])
 
 host = 'localhost'
 
-######## port for orchastrator_adm request
+######## port 11001 => for orchastrator_adm request
 admin_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 admin_socket.setblocking(0)
-# admin_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 admin_port = 11001
 admin_socket.bind((host, admin_port))
 admin_socket.listen(5)
-######## port for orchastrator_adm request
-
-
+######## port 11001 => for orchastrator_adm request
 
 ###port 11000 => listen for stats_collector tool
 stats_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# host = 'localhost'
 stats_port = 11000
-# bind to the stats_port
 stats_socket.bind((host, stats_port))
-# queue up to 5 requests
 stats_socket.listen(5)
+
 while True:
 	logger = Logger(filename = "orchastrator", logger_name="Orchastrator API")
-	stats_clientsocket,addr = stats_socket.accept()
-
 ######## processing admin requests
-	logger.info("Before")
 	# readable, writable, errored = select.select([admin_socket], [], [])
 	# logger.info("After")
 	# for s in readable:
@@ -63,9 +55,8 @@ while True:
 	# 		else:
 	# 			s.close()
 	# 			read_list.remove(s)
-
-
 	flag = True
+	admin_requests = []
 	while flag:
 		admin_request = None
 		try:
@@ -73,19 +64,17 @@ while True:
 			logger.info("{} === {}".format(admin_adr[0], admin_adr[1]))
 			admin_request = admin_clientsocket.recv(1024).decode()
 		except BlockingIOError:
-			logger.info('no data')
+			logger.info("There aren't any request from orchastrator_adm"\
+						" in the admin_socket on port 11001")
 		if admin_request:
-			# a += admin_request
-			# admin_request = json.loads(a.decode('utf-8'))
+			admin_requests.append(admin_request)
 			logger.info("Received command from orchastrator_adm => {}".format(admin_request))
 		else:
 			logger.info("No requests from orchastrator_adm")
 			flag = False
 ######## processing admin_requests
 
-
-
-
+	stats_clientsocket,addr = stats_socket.accept()
 ########
 	stats_clientsocket.sendall("Give me stats".encode('utf-8'))
 	logger.info("Asking for stats from stats_collector")
@@ -96,8 +85,6 @@ while True:
 		b += containers_stats
 		containers_stats = json.loads(b.decode('utf-8'))
 		logger.info("Received stats by stats_collector => {}".format(containers_stats))
-
-
 	stats_clientsocket.close()
 
 

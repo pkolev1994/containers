@@ -11,28 +11,40 @@ option_2 = sys.argv[2]
 HOST = 'localhost'
 PORT = 11001
 
-if option == 'release':
-	# with open("/home/pkolev/Containers/testbed_2/admin_requests.txt") as admin_file:
-	# 	admin_file.write("release {}".format(option_2))
+
+
+def socket_connect(first_option, second_option):
 	try:
-		stats_socket_for_sending = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		stats_socket_for_sending.connect((HOST, PORT))
+		orchastrator_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		orchastrator_socket.connect((HOST, PORT))
 	except socket.error as e:
 		print("error while connecting, master doesn't respond :: {}".format(e))
-	msg = "release {}".format(option_2)
-	stats_socket_for_sending.sendall(msg.encode("utf-8"))
-	stats_socket_for_sending.close()
-elif option == "start" and option_2 == "api":
-	print("Starting orchastrator api ...")
-	os.chdir("/home/pkolev/Containers/testbed_2/")
-	os.system("/usr/bin/python3.6 orchastration_api_2.py >/dev/null &")
-elif option == "stop" and option_2 == "api":
-	pstring = "orchastration_api_2.py"
-	for line in os.popen("ps ax | grep " + pstring + " | grep -v grep"):
-		fields = line.split()
-		pid = fields[0]
-	print("Stopping orchastration_api_2 ...")
-	os.kill(int(pid), signal.SIGKILL)
-else:
-	print("Usage of orchastrator_adm : ")
-	print("orchastrator_adm strat/stop api")
+	msg = "{} {}".format(first_option, second_option)
+	orchastrator_socket.sendall(msg.encode("utf-8"))
+	orchastrator_socket.close()
+
+
+def main():
+
+	if option == 'release':
+		socket_connect(option, option_2)
+	elif option == "start" and option_2 == "api":
+		print("Starting orchastrator api ...")
+		os.chdir("/home/pkolev/Containers/testbed_2/")
+		os.system("/usr/bin/python3.6 orchastration_api_2.py >/dev/null &")
+	elif option == "stop" and option_2 == "api":
+		pstring = "orchastration_api_2.py"
+		for line in os.popen("ps ax | grep " + pstring + " | grep -v grep"):
+			fields = line.split()
+			pid = fields[0]
+		print("Stopping orchastration_api_2 ...")
+		os.kill(int(pid), signal.SIGKILL)
+	elif option == 'stop':
+		socket_connect(option, option_2)
+	elif option == 'start':
+		socket_connect(option, option_2)
+	else:
+		print("Usage of orchastrator_adm : ")
+		print("orchastrator_adm strat/stop api")
+
+main()
