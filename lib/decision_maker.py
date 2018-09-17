@@ -9,6 +9,7 @@ from lib.containering import update_config
 from lib.swarming import SwarmManagment
 from lib.containering import ContainerManagement
 from lib.logger import Logger
+from lib.etcd_client import EtcdManagement
 
 
 class DecisionMaker():
@@ -20,9 +21,19 @@ class DecisionMaker():
 			available_servers(list)
 		"""
 
-		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
-		self.available_servers = parse_config('orchastrator.json')['available_servers']
+		###orchastrator.json way
+		# self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
+		# self.available_servers = parse_config('orchastrator.json')['available_servers']
+		# self.apps_by_hosts = self.take_containers_by_hosts()
+		###orchastrator.json way
+
+		###etcd way
+		self.etcd_manager = EtcdManagement()
+		self.orchastrator_config = self.etcd_manager.get_etcd_config()
+		self.swarm_servers = self.etcd_manager.get_swarm_servers()
+		self.available_servers = self.etcd_manager.get_available_servers()
 		self.apps_by_hosts = self.take_containers_by_hosts()
+		###etcd way
 
 	@staticmethod
 	def get_docker_api(host_ip):
@@ -46,10 +57,37 @@ class DecisionMaker():
 		return cont_names
 
 
+	def update_platform_status(self):
+
+		names_by_hosts = {}
+		###orchastrator.json way
+		# for host in parse_config('orchastrator.json')['swarm_servers']:
+		###orchastrator.json way
+		###etcd way
+		for host in self.etcd_manager.get_etcd_config()['swarm_servers']:
+		###etcd way
+			names_by_hosts[host] = {}
+			docker_api = DecisionMaker.get_docker_api(host)
+			for container in docker_api.containers.list():
+				app_name_search = re.search('(.*?)\_\d+', container.name)
+				if app_name_search:
+					app_name = app_name_search.group(1)
+					if app_name not in names_by_hosts[host]:
+						names_by_hosts[host][app_name] = {}
+					names_by_hosts[host][app_name].update( \
+							{container.name: self.orchastrator_config['types_instances'][app_name][container.name]})
+		self.etcd_manager.write("/orchastrator/platform_status", str(names_by_hosts))
+		return names_by_hosts
+
 	def take_containers_by_hosts(self):
 
 		names_by_hosts = {}
-		for host in parse_config('orchastrator.json')['swarm_servers']:
+		###orchastrator.json way
+		# for host in parse_config('orchastrator.json')['swarm_servers']:
+		###orchastrator.json way
+		###etcd way
+		for host in self.etcd_manager.get_etcd_config()['swarm_servers']:
+		###etcd way
 			names_by_hosts[host] = dict(Counter(self.list_containers_by_host(host)))
 		return names_by_hosts
 
@@ -75,7 +113,7 @@ class DecisionMaker():
 
 	def calculating_app_on_hosts(self):
 		"""
-	`	Args:
+		Args:
 			None
 		Returns:
 			app_counts(dict)
@@ -91,6 +129,45 @@ class DecisionMaker():
 			app_counts[app] = number
 
 		return app_counts
+
+
+	def check_for_releasing_node(self):
+		"""
+		Check for finding a node that can 
+		be released if it is not necessary
+		Args:
+			None
+		Returns:
+			host_for_release(str) or None		
+		"""
+		apps_count = self.calculating_app_on_hosts()
+		curr_nodes_number = len(self.orchastrator_config['swarm_servers'])
+		validation_flag = True
+		for app in apps_count.keys():
+			app_count = apps_count[app]
+			app_per_node = '{}_per_node'.format(app)
+			if curr_nodes_number*self.orchastrator_config[app_per_node] - app_count >= \
+				self.orchastrator_config[app_per_node]:
+				pass
+			else:
+				validation_flag = False
+		if validation_flag:
+			# return "Should be released some node"
+			all_app_count = 1000
+			names_by_hosts = self.take_containers_by_hosts()
+			for host in names_by_hosts.keys():
+				if host == self.orchastrator_config['master']:
+					continue
+				curr_count = 0
+				for app in names_by_hosts[host].keys():
+					curr_count += names_by_hosts[host][app]
+				if curr_count < all_app_count:
+					host_for_release = host
+					all_app_count = curr_count
+			return host_for_release
+		else:
+			return None
+
 
 
 	def making_host_decision(self, application, decision, release_node=False):
@@ -123,10 +200,19 @@ class DecisionMaker():
 				format(application, average_app_number, parse_config('orchastrator.json')[app_per_node]))
 			logger.clear_handler()
 			###logic for adding node to the swarm
-			if average_app_number >= parse_config('orchastrator.json')[app_per_node]:
-				if len(parse_config('orchastrator.json')['available_servers']) != 0:
-					new_server = parse_config('orchastrator.json')['available_servers'][0]
-					swarm_manager.join_server_swarm(host_ip = parse_config('orchastrator.json')['available_servers'][0])
+
+			###orchastrator.json way
+			# if average_app_number >= parse_config('orchastrator.json')[app_per_node]:				
+			# 	if len(parse_config('orchastrator.json')['available_servers']) != 0:
+			# 		new_server = parse_config('orchastrator.json')['available_servers'][0]
+			# 		swarm_manager.join_server_swarm(host_ip = parse_config('orchastrator.json')['available_servers'][0])
+			###orchastrator.json way
+			###etcd way
+			if average_app_number >= self.etcd_manager.get_etcd_config()[app_per_node]:
+				if len(self.etcd_manager.get_etcd_config()['available_servers']) != 0:
+					new_server = self.etcd_manager.get_etcd_config()['available_servers'][0]
+					swarm_manager.join_server_swarm(host_ip = self.etcd_manager.get_etcd_config()['available_servers'][0])
+			###etcd way
 					return new_server
 				else:
 					logger.critical("There are not any available servers should" \
@@ -140,7 +226,7 @@ class DecisionMaker():
 			###logic for adding node to the swarm			
 			for host in app_by_hosts.keys():
 				if app_by_hosts[host][application] < average_app_number and \
-					app_by_hosts[host][application] < parse_config('orchastrator.json')[app_per_node]:
+					app_by_hosts[host][application] < self.etcd_manager.get_etcd_config()[app_per_node]: #parse_config('orchastrator.json')[app_per_node]:
 					return host
 			for host in app_by_hosts.keys():
 				return host
@@ -151,16 +237,32 @@ class DecisionMaker():
 
 			min_app = "{}_min".format(application)
 			# print("Min_app => {}\t app_num {}".format(parse_config('orchastrator.json')[min_app], application_number))
+
+			###orchastrator.json way
+			# logger.warning("Application => {} ||| min_apps on platform=> {}\tcurrent app_num {}". \
+			# 	format(application, parse_config('orchastrator.json')[min_app], application_number))
+			###orchastrator.json way
+
+			###etcd way
 			logger.warning("Application => {} ||| min_apps on platform=> {}\tcurrent app_num {}". \
-				format(application, parse_config('orchastrator.json')[min_app], application_number))
+				format(application, self.etcd_manager.get_etcd_config()[min_app], application_number))
+			###etcd way
+
 			logger.clear_handler()
-			if application_number == parse_config('orchastrator.json')[min_app]:
+
+			###orchastrator.json way
+			# if application_number == parse_config('orchastrator.json')[min_app]:
+			###orchastrator.json way
+
+			###etcd way
+			if application_number == self.etcd_manager.get_etcd_config()[min_app]:
+			###etcd way
 				return None
 
 			average_app_number = application_number/host_number			
 			for host in app_by_hosts.keys():
 				if app_by_hosts[host][application] > average_app_number and \
-					app_by_hosts[host][application] < parse_config('orchastrator.json')[app_per_node]:
+					app_by_hosts[host][application] > self.etcd_manager.get_etcd_config()[app_per_node]: #parse_config('orchastrator.json')[app_per_node]:
 					return host
 			for host in app_by_hosts.keys():
 				return host
@@ -172,6 +274,10 @@ class DecisionMaker():
 		Stop all containers from the passed node,
 		move them to the other hosts in self.swarm_servers,
 		and move the host to available.servers
+		Args:
+			host(str)
+		Returns:
+			None
 		"""
 		container_manager = ContainerManagement()
 		swarm_manager = SwarmManagment()

@@ -7,19 +7,21 @@ import socket
 
 option = sys.argv[1]
 option_2 = sys.argv[2]
-
 HOST = 'localhost'
 PORT = 11001
 
 
 
-def socket_connect(first_option, second_option):
+def socket_connect(first_option, second_option, third_option = False):
 	try:
 		orchastrator_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		orchastrator_socket.connect((HOST, PORT))
 	except socket.error as e:
 		print("error while connecting, master doesn't respond :: {}".format(e))
-	msg = "{} {}".format(first_option, second_option)
+	if not third_option:
+		msg = "{} {}".format(first_option, second_option)
+	else:
+		msg = "{} {} {}".format(first_option, second_option, third_option)		
 	orchastrator_socket.sendall(msg.encode("utf-8"))
 	orchastrator_socket.close()
 
@@ -40,11 +42,15 @@ def main():
 		print("Stopping orchastration_api_2 ...")
 		os.kill(int(pid), signal.SIGKILL)
 	elif option == 'stop':
-		socket_connect(option, option_2)
+		option_3 = sys.argv[3]
+		socket_connect(option, option_2, option_3)
 	elif option == 'start':
-		socket_connect(option, option_2)
+		option_3 = sys.argv[3]
+		socket_connect(option, option_2, option_3)
 	else:
 		print("Usage of orchastrator_adm : ")
-		print("orchastrator_adm strat/stop api")
+		print("orchastrator_adm start/stop api")
+		print("orchastrator_adm start/stop container_name node_ip")
+		print("orchastrator_adm release node_ip")
 
 main()

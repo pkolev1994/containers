@@ -3,7 +3,7 @@ import json
 
 ###custom libs
 from lib.logger import Logger
-
+from lib.etcd_client import EtcdManagement
 
 def parse_config(json_file):
 	"""
@@ -64,8 +64,16 @@ class ContainerManagement():
 		Args:
 			available_servers(list)
 		"""
-		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
-		self.roles_config = parse_config('orchastrator.json')['types_instances']
+		###orchastrator.json way
+		# self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
+		# self.roles_config = parse_config('orchastrator.json')['types_instances']
+		###orchastrator.json way
+
+		###etcd way
+		self.etcd_manager = EtcdManagement()
+		self.swarm_servers = self.etcd_manager.get_swarm_servers()
+		self.roles_config = self.etcd_manager.get_types_instances()
+		###etcd way		
 		
 
 	def add_server(self, host_ips):
@@ -82,14 +90,24 @@ class ContainerManagement():
 		if isinstance(host_ips, str):
 			if host_ips not in self.swarm_servers:
 				self.swarm_servers.append(host_ips)
-				update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+				###orchastrator.json way				
+				# update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+				###orchastrator.json way
+				###etcd way
+				self.etcd_manager.write("/orchastrator/swarm_servers/{}".format(host_ips), "")
+				###etcd way		
 			else:
 				# print("The host ip is already in the list")
 				logger.info("The host ip {} is already in the list".format(host_ips))
 				logger.clear_handler()
 		elif isinstance(host_ips, list):
 			self.swarm_servers = list(set(self.swarm_servers + host_ips))
-			update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+			###orchastrator.json way
+			# update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+			###orchastrator.json way
+			###etcd way
+			self.etcd_manager.write("/orchastrator/swarm_servers/{}".format(host_ips), "")
+			###etcd way
 		else:
 			logger.error("Server should be list or string")
 			logger.clear_handler()
@@ -103,7 +121,12 @@ class ContainerManagement():
 			host_ip(str)
 		"""
 		self.swarm_servers.remove(host_ip)
+		###orchastrator.json way
 		update_config("orchastrator.json", "swarm_servers", host_ips, state='remove')
+		###orchastrator.json way
+		###etcd way
+		self.etcd_manager.remove_key("/orchastrator/swarm_servers/{}".format(host_ip))
+		###etcd way
 
 
 	def run_container(self, host_ip, application):

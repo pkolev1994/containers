@@ -6,6 +6,7 @@ import docker
 from lib.containering import parse_config
 from lib.containering import update_config
 from lib.logger import Logger
+from lib.etcd_client import EtcdManagement
 
 
 class SwarmManagment():
@@ -24,23 +25,37 @@ class SwarmManagment():
 			master_node(str)
 			token(str)
 		"""
+
+		###orchastrator.json way
+		# self.ssh_client = paramiko.SSHClient()
+		# self.ssh_client.load_system_host_keys()
+		# self.available_servers = parse_config("orchastrator.json")["available_servers"]
+		# self.swarm_servers = parse_config("orchastrator.json")["swarm_servers"]
+		# self.user = parse_config("orchastrator.json")["user"]
+		# self.password = parse_config("orchastrator.json")["password"]
+		# self.master_nodes = parse_config("orchastrator.json")["master_nodes"]
+		# self.__master = parse_config("orchastrator.json")["master"]
+		# self.__token = parse_config("orchastrator.json")["token"]
+		###orchastrator.json way
+		
+		###etcd way
+		self.etcd_manager = EtcdManagement()
+		self.orchastrator_config = self.etcd_manager.get_etcd_config()
 		self.ssh_client = paramiko.SSHClient()
 		self.ssh_client.load_system_host_keys()
-		# self.available_servers = kwargs.get('available_servers', [])
-		# self.swarm_servers = kwargs.get('swarm_servers', [])
-		# self.user = kwargs.get('user')
-		# self.password = kwargs.get('password')
-		# self.master_nodes = kwargs.get('master_nodes', [])
-		# self.__master = kwargs.get('master', None)
-		# self.__token = kwargs.get('token')
+		self.available_servers = self.orchastrator_config["available_servers"]
+		self.swarm_servers = self.orchastrator_config["swarm_servers"]
+		# self.user = self.orchastrator_config["user"]
+		# self.password = self.orchastrator_config["password"]
+		# self.master_nodes = self.orchastrator_config["master_nodes"]
+		self.__master = self.orchastrator_config["master"]
+		self.__token = self.orchastrator_config["token"]
 
-		self.available_servers = parse_config("orchastrator.json")["available_servers"]
-		self.swarm_servers = parse_config("orchastrator.json")["swarm_servers"]
 		self.user = parse_config("orchastrator.json")["user"]
 		self.password = parse_config("orchastrator.json")["password"]
 		self.master_nodes = parse_config("orchastrator.json")["master_nodes"]
-		self.__master = parse_config("orchastrator.json")["master"]
-		self.__token = parse_config("orchastrator.json")["token"]
+		###etcd way
+
 
 
 	@staticmethod
@@ -68,15 +83,25 @@ class SwarmManagment():
 		if isinstance(host_ips, str):
 			if host_ips not in self.available_servers:
 				self.available_servers.append(host_ips)
-				update_config("orchastrator.json", "available_servers", host_ips, state='add')
+###orchastrator.json way
+				# update_config("orchastrator.json", "available_servers", host_ips, state='add')
+###orchastrator.json way
+###etcd way
+				self.etcd_manager.write("/orchastrator/available_servers/{}".format(host_ips), "")
+###etcd way
+
 			else:
 				# print("The host ip is already in the list")
 				logger.info("The host ip is already in the list")
 				logger.clear_handler()
 		elif isinstance(host_ips, list):
 			self.available_servers = list(set(self.available_servers + host_ips))
-			update_config("orchastrator.json", "available_servers", host_ips, state='add')
-
+###orchastrator.json way
+			# update_config("orchastrator.json", "available_servers", host_ips, state='add')
+###orchastrator.json way
+###etcd way
+			self.etcd_manager.write("/orchastrator/available_servers/{}".format(host_ips), "")
+###etcd way
 		else:
 			logger.error("Server should be list or string")
 			logger.clear_handler()
@@ -96,7 +121,12 @@ class SwarmManagment():
 		if isinstance(host_ip, str):
 			if host_ip not in self.swarm_servers:
 				self.swarm_servers.append(host_ip)
-				update_config("orchastrator.json", "swarm_servers", host_ip, state='add')
+###orchastrator.json way
+				# update_config("orchastrator.json", "swarm_servers", host_ip, state='add')
+###orchastrator.json way
+###etcd way
+				self.etcd_manager.write("/orchastrator/swarm_servers/{}".format(host_ip), "")
+###etcd way
 			else:
 				# print("The host ip is already in the list")
 				logger.info("The host ip is already in the list")
@@ -109,7 +139,12 @@ class SwarmManagment():
 		Returns:
 			self.available_servers(list)
 		"""
-		return parse_config("orchastrator.json")["available_servers"]
+###orchastrator.json way
+		# return parse_config("orchastrator.json")["available_servers"]
+###orchastrator.json way
+###etcd way
+		return self.orchastrator_config["available_servers"]
+###etcd way
 
 
 	def list_swarm_servers(self):
@@ -118,7 +153,12 @@ class SwarmManagment():
 		Returns:
 			self.swarm_servers(list)
 		"""
-		return parse_config("orchastrator.json")["swarm_servers"]
+###orchastrator.json way
+		# return parse_config("orchastrator.json")["swarm_servers"]
+###orchastrator.json way
+###etcd way
+		return self.orchastrator_config["swarm_servers"]
+###etcd way
 
 
 	def remove_available_server(self, host_ip):
@@ -128,7 +168,12 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.available_servers.remove(host_ip)
-		update_config("orchastrator.json", "available_servers", host_ip, state='remove')
+###orchastrator.json way
+		# update_config("orchastrator.json", "available_servers", host_ip, state='remove')
+###orchastrator.json way
+###etcd way
+		self.etcd_manager.remove_key("/orchastrator/available_servers/{}".format(host_ip))
+###etcd way
 
 
 	def remove_swarm_server(self, host_ip):
@@ -139,7 +184,12 @@ class SwarmManagment():
 		"""
 		if host_ip in self.swarm_servers:
 			self.swarm_servers.remove(host_ip)
-			update_config("orchastrator.json", "swarm_servers", host_ip, state='remove')
+###orchastrator.json way
+			# update_config("orchastrator.json", "swarm_servers", host_ip, state='remove')
+###orchastrator.json way
+###etcd way
+			self.etcd_manager.remove_key("/orchastrator/swarm_servers/{}".format(host_ip))
+###etcd way
 		else:
 			logger = Logger(filename = "orchastrator", logger_name = "SwarmManagment remove_swarm_server")		
 			logger.error("Node {} can't be removed from swarm_servers (It is not in swarm_servers)".format(host_ip))
@@ -169,9 +219,16 @@ class SwarmManagment():
 		docker_api = self.get_docker_api(host_ip)
 		response = False
 		try:
+###orchastrator.json way
+			# response = docker_api.swarm.join(remote_addrs= \
+			# 				[parse_config("orchastrator.json")["master"]], \
+			# 				join_token = parse_config("orchastrator.json")["token"])
+###orchastrator.json way
+###etcd way
 			response = docker_api.swarm.join(remote_addrs= \
-							[parse_config("orchastrator.json")["master"]], \
-							join_token = parse_config("orchastrator.json")["token"])
+							[self.orchastrator_config["master"]], \
+							join_token = self.orchastrator_config["token"])
+###etcd way
 		except docker.errors.APIError as e:
 			logger.info("Exception handling swarm joining but config will be updated and corrected")
 			logger.clear_handler()
@@ -238,7 +295,9 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.master_nodes.append(host_ip)
+###orchastrator.json way
 		update_config("orchastrator.json", "master_nodes", host_ip, state='add')
+###orchastrator.json way
 
 
 
@@ -251,7 +310,9 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.master_nodes.remove(host_ip)
+###orchastrator.json way
 		update_config("orchastrator.json", "master_nodes", host_ip, state='remove')
+###orchastrator.json way
 
 
 	def promote_to_manager(self, host_ip):
@@ -312,8 +373,12 @@ class SwarmManagment():
 			host_ip(str)
 		"""
 		self.__master = host_ip
-		update_config("orchastrator.json", "master", host_ip, state="add")
-
+###orchastrator.json way
+		# update_config("orchastrator.json", "master", host_ip, state="add")
+###orchastrator.json way
+###etcd way
+		self.etcd_manager.write("/orchastrator/master", host_ip)
+###etcd way
 
 
 	def change_token(self, token):
@@ -323,4 +388,9 @@ class SwarmManagment():
 			token(str)
 		"""
 		self.__token = token
-		update_config("orchastrator.json", "token", token, state="add")
+###orchastrator.json way
+		# update_config("orchastrator.json", "token", token, state="add")
+###orchastrator.json way
+###etcd way
+		self.etcd_manager.write("/orchastrator/token", token)
+###etcd way

@@ -30,9 +30,10 @@
 	    },
 
 	"logging_level": 10,
-	"available_servers": ["10.102.7.124"],
+	"available_servers": [],
 	"swarm_servers": ["10.102.7.122",
-					  "10.102.7.123"],
+					  "10.102.7.123",
+					  "10.102.7.124"],
 	"token": "SWMTKN-1-5ynn8bvs5tolq1okngmcysob08fsltgozvnrjpzq95sv5q2w7v-2mybtqebhtcygs13xclo69kg9",
 	"user": "root",
 	"password": "0penc0de",
