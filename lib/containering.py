@@ -1,9 +1,9 @@
 import docker
 import json
-
+import re
 ###custom libs
 from lib.logger import Logger
-
+from lib.etcd_client import EtcdManagement
 
 def parse_config(json_file):
 	"""
@@ -15,7 +15,7 @@ def parse_config(json_file):
 		with open(json_file) as json_data:
 			js_data = json.load(json_data)
 	except IOError:
-		logger = Logger(filename = "orchastrator", logger_name = "parse_config")
+		logger = Logger(filename = "orchestrator", logger_name = "parse_config")
 		logger.error("File => {} couldn't be opened for read!".format(json_file))
 		logger.clear_handler()
 		raise("File => {} couldn't be opened for read!".format(json_file))
@@ -64,8 +64,16 @@ class ContainerManagement():
 		Args:
 			available_servers(list)
 		"""
-		self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
-		self.roles_config = parse_config('orchastrator.json')['types_instances']
+		###orchastrator.json way
+		# self.swarm_servers = parse_config('orchastrator.json')['swarm_servers']
+		# self.roles_config = parse_config('orchastrator.json')['types_instances']
+		###orchastrator.json way
+
+		###etcd way
+		self.etcd_manager = EtcdManagement()
+		self.swarm_servers = self.etcd_manager.get_swarm_servers()
+		self.roles_config = self.etcd_manager.get_types_instances()
+		###etcd way		
 		
 
 	def add_server(self, host_ips):
@@ -78,18 +86,28 @@ class ContainerManagement():
 		Returns:
 			Append to self.swarm_servers the host_ips
 		"""
-		logger = Logger(filename = "orchastrator", logger_name = "ContainerManagement add_server")
+		logger = Logger(filename = "orchestrator", logger_name = "ContainerManagement add_server")
 		if isinstance(host_ips, str):
 			if host_ips not in self.swarm_servers:
 				self.swarm_servers.append(host_ips)
-				update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+				###orchastrator.json way				
+				# update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+				###orchastrator.json way
+				###etcd way
+				self.etcd_manager.write("/platform/orchestrator/swarm_servers/{}".format(host_ips), "")
+				###etcd way		
 			else:
 				# print("The host ip is already in the list")
 				logger.info("The host ip {} is already in the list".format(host_ips))
 				logger.clear_handler()
 		elif isinstance(host_ips, list):
 			self.swarm_servers = list(set(self.swarm_servers + host_ips))
-			update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+			###orchastrator.json way
+			# update_config("orchastrator.json", "swarm_servers", host_ips, state='add')
+			###orchastrator.json way
+			###etcd way
+			self.etcd_manager.write("/platform/orchestrator/swarm_servers/{}".format(host_ips), "")
+			###etcd way
 		else:
 			logger.error("Server should be list or string")
 			logger.clear_handler()
@@ -103,7 +121,12 @@ class ContainerManagement():
 			host_ip(str)
 		"""
 		self.swarm_servers.remove(host_ip)
+		###orchastrator.json way
 		update_config("orchastrator.json", "swarm_servers", host_ips, state='remove')
+		###orchastrator.json way
+		###etcd way
+		self.etcd_manager.remove_key("/platform/orchestrator/swarm_servers/{}".format(host_ip))
+		###etcd way
 
 
 	def run_container(self, host_ip, application):
@@ -112,7 +135,7 @@ class ContainerManagement():
 		Args:
 			host_ip(str)
 		"""
-		logger = Logger(filename = "orchastrator", logger_name = "ContainerManagement run_container")
+		logger = Logger(filename = "orchestrator", logger_name = "ContainerManagement run_container")
 		docker_api = self.get_docker_api(host_ip)
 		oc_containers = self.get_container_names()
 		# print("Aplication {} will be runned on server => {}".format(application, host_ip))
@@ -134,9 +157,11 @@ class ContainerManagement():
 				# 			hostname = role_config, name = role_config, \
 				# 			privileged = True, detach=True)
 
+				image = re.sub('.*?_', "", application)
+				logger.info("Image => {}".format(image))
 				runned_container = docker_api.containers. \
 							create(image = "g2.pslab.opencode.com:5000/{}1:v2". \
-							format(application), \
+							format(image), \
 							hostname = role_config, name = role_config, \
 							privileged = True, detach=True)
 				docker_api.networks.get(parse_config('orchastrator.json')['network_name']). \
@@ -150,7 +175,7 @@ class ContainerManagement():
 		"""
 		Stopping container
 		"""
-		logger = Logger(filename = "orchastrator", logger_name = "ContainerManagement stop_container")
+		logger = Logger(filename = "orchestrator", logger_name = "ContainerManagement stop_container")
 		client = self.get_docker_api(host_ip)
 		container_names = self.get_container_names()
 		container_names[name].stop(timeout = 30)
